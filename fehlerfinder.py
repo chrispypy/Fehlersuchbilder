@@ -1,14 +1,15 @@
 import skimage
 import random
-from skimage.segmentation import clear_border
 from skimage.filters import threshold_otsu
 from skimage.measure import label, regionprops
 from skimage.morphology import square, binary_closing, remove_small_objects
 from skimage import draw
 import numpy as np
 import matplotlib.pyplot as plt
-from PIL import Image, ImageEnhance
+from PIL import Image
 import os
+
+# pyright: reportUnboundVariable=false 
 def load_random_image():
     
     PATH = os.path.join(np.random.choice([b'_FOTOS',b'_CARTOONS']))
@@ -28,7 +29,6 @@ def load_random_image():
 
 
 
-# pyright: reportUnboundVariable=false 
 
 imA, imB, imLSG = load_random_image()
 imA_gray = np.array(imA.convert('L'))
@@ -39,29 +39,35 @@ binary = diff < .95
 binary_old = binary
 # binary = diff > thresh
 # binary = clear_border(binary)
-num = np.Inf 
+# num = np.Inf 
 
 counter = 1
+binary = binary_closing(binary, square(16))
+binary = remove_small_objects(binary, 16)
+labels, num = skimage.measure.label(binary, background = 0, connectivity = 2, return_num = True)
+# while True:
+#     binary = binary_closing(binary, square(counter))
+#     binary = remove_small_objects(binary,counter)
+#     labels, num = skimage.measure.label(binary, background=0, connectivity=2, return_num = True)
+#     if num == 10:
+#         with open("res.txt", "a") as myfile:
+#             myfile.write(f'{counter},')
+#         break
+#     counter += 1
 
-while num > 10:
-    binary = binary_closing(binary, square(counter))
-    binary = remove_small_objects(binary,counter)
-    labels, num = skimage.measure.label(binary, background=0, connectivity=2, return_num = True)
-    print(num)
-    counter += 1
-    # if counter > 30:
+#     if counter > 30:
         # break
 
 props = regionprops(labels) 
 # main_components = np.zeros((10,4))
 mask_ellipses = np.zeros(diff.shape)
 mask_perimeter = np.zeros(diff.shape)
-
+print(f'{num} differences found!')
 for i,region in enumerate(props):
     orientation = region.orientation
     x0,y0 = (int(c) for c in region.centroid)
-    x1 = x0 - np.sin(orientation) * 0.5 * region.axis_major_length
-    y1 = y0 - np.cos(orientation) * 0.5 * region.axis_major_length
+    # x1 = x0 - np.sin(orientation) * 0.5 * region.axis_major_length
+    # y1 = y0 - np.cos(orientation) * 0.5 * region.axis_major_length
     r_major = max(int(region.axis_major_length/1.8),20)
     r_minor = int(max(region.axis_minor_length/1.8,r_major/4))
     # main_components[i,:] = [x0,y0,x1,y1]
@@ -72,10 +78,12 @@ for i,region in enumerate(props):
 
     mask_perimeter[rr_1,cc_1] = 1
     mask_ellipses[rr,cc] = 1
+    
 
 mask_perimeter_color = np.stack([mask_perimeter*c for c in (255,0,0,255)], axis = -1).astype(np.uint8)
 mask_ellipses_color = np.stack([mask_ellipses*c for c in (255,255,0,80)], axis = -1).astype(np.uint8)
-_,ax = plt.subplots(2,2)
+fig,ax = plt.subplots(2,2)
+fig.suptitle(f'{num} differences found!', fontsize = 20)
 
 # enhancer_contrast = ImageEnhance.Color(imA)
 # imA_dark = enhancer_contrast.enhance(.5)
@@ -88,12 +96,13 @@ imA_dark[mask_ellipses == 0] = (imA_dark[mask_ellipses == 0]/2).astype(np.uint8)
 ax[0,0].imshow(imA)
 # ax[0,0].imshow(mask_perimeter_color)
 ax[0,1].imshow(imB)
-# ax[1,0].imshow(binary)
+ax[1,0].imshow(binary)
 ax[1,0].imshow(imA_dark)
 
 ax[1,0].imshow(mask_ellipses_color)
 
 ax[1,1].imshow(binary_old)
+
 plt.show()
 
 
